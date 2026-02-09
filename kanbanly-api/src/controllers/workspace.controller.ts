@@ -3,9 +3,8 @@ import { IWorkspaceController } from "../types/controller-interfaces/IWorkspaceC
 import { inject, injectable } from "tsyringe";
 import { IWorkspaceService } from "../types/service-interface/IWorkspaceService";
 import { HTTP_STATUS } from "../shared/constants/http.status";
-import { IWorkspace } from "../types/entities/IWrokspace";
 import AppError from "../shared/utils/AppError";
-import { SUCCESS_MESSAGES } from "../shared/constants/messages";
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "../shared/constants/messages";
 
 @injectable()
 export class WorkspaceController implements IWorkspaceController {
@@ -17,7 +16,10 @@ export class WorkspaceController implements IWorkspaceController {
     const { name, description, logo } = req.body;
 
     if (!user || !user.userid) {
-      throw new AppError("Unautherized access", HTTP_STATUS.FORBIDDEN);
+      throw new AppError(
+        ERROR_MESSAGES.AUTH_INVALID_TOKEN,
+        HTTP_STATUS.UNAUTHORIZED
+      );
     }
 
     await this._workspaceService.createWorkspace({
@@ -37,7 +39,10 @@ export class WorkspaceController implements IWorkspaceController {
     const { user } = req;
 
     if (!user) {
-      throw new AppError("Token is not valid", HTTP_STATUS.FORBIDDEN);
+      throw new AppError(
+        ERROR_MESSAGES.AUTH_INVALID_TOKEN,
+        HTTP_STATUS.UNAUTHORIZED
+      );
     }
 
     const workspaces = await this._workspaceService.getAllWorkspaces(
@@ -55,7 +60,10 @@ export class WorkspaceController implements IWorkspaceController {
     const userId = req.user?.userid;
     const workspaceId = req.params.workspaceId;
     if (!userId) {
-      throw new AppError("Token is not valid", HTTP_STATUS.FORBIDDEN);
+      throw new AppError(
+        ERROR_MESSAGES.AUTH_INVALID_TOKEN,
+        HTTP_STATUS.UNAUTHORIZED
+      );
     }
 
     if (!workspaceId)
@@ -78,7 +86,10 @@ export class WorkspaceController implements IWorkspaceController {
     const { name, description, logo } = req.body;
     const workspaceId = req.params.workspaceId;
     if (!userId) {
-      throw new AppError("Token is not valid", HTTP_STATUS.FORBIDDEN);
+      throw new AppError(
+        ERROR_MESSAGES.AUTH_INVALID_TOKEN,
+        HTTP_STATUS.UNAUTHORIZED
+      );
     }
 
     await this._workspaceService.editWorkspace({
@@ -99,7 +110,10 @@ export class WorkspaceController implements IWorkspaceController {
     const userId = req.user?.userid;
     const workspaceId = req.params.workspaceId;
     if (!userId) {
-      throw new AppError("Token is not valid", HTTP_STATUS.FORBIDDEN);
+      throw new AppError(
+        ERROR_MESSAGES.AUTH_INVALID_TOKEN,
+        HTTP_STATUS.UNAUTHORIZED
+      );
     }
 
     if (!workspaceId)

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import {
   Edit3,
   Save,
@@ -11,6 +11,8 @@ import {
   Shield,
   EyeOff,
   Eye,
+  Camera,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
@@ -27,8 +29,12 @@ import {
   UpdateUserProfilePayload,
   UserProfileData,
 } from "@/lib/api/user/user.types";
-import Header from "@/components/organisms/user/Header";
 import Link from "next/link";
+import { Subscription } from "@/lib/api/subscription/subscription.types";
+import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import { Avatar, AvatarFallback } from "@/components/atoms/avatar";
+import { AvatarImage } from "@radix-ui/react-avatar";
 
 interface UserManagementTemplateProps {
   userData: UserProfileData;
@@ -36,6 +42,10 @@ interface UserManagementTemplateProps {
   uploadPassword: (data: UpdateUserPasswordPayload) => void;
   isEditLoading: boolean;
   isPasswordLoading: boolean;
+  isUploading: boolean;
+  subscription?: Subscription;
+  handleCreateCustomerPortal: () => void;
+  handleImageUpload: (file: File) => void;
 }
 
 export function UserManagementTemplate({
@@ -43,7 +53,11 @@ export function UserManagementTemplate({
   uploadEdited,
   isEditLoading,
   isPasswordLoading,
+  isUploading,
   uploadPassword,
+  subscription,
+  handleCreateCustomerPortal,
+  handleImageUpload,
 }: UserManagementTemplateProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isPasswordEditing, setIsPasswordEditing] = useState(false);
@@ -58,11 +72,15 @@ export function UserManagementTemplate({
     new: false,
     confirm: false,
   });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   // erors
   const [errors, setErrors] = useState<
     Partial<Record<keyof PasswordChangeData, string>>
   >({});
+
+  const router = useRouter();
 
   const handleSave = () => {
     if (!editData) {
@@ -117,7 +135,6 @@ export function UserManagementTemplate({
       setErrors(newErros);
       return;
     }
-    console.log("sending..");
 
     uploadPassword({
       newPassword: passwordData.newPassword,
@@ -133,6 +150,30 @@ export function UserManagementTemplate({
       newPassword: "",
       confirmPassword: "",
     });
+  };
+
+  const handleManagePlan = () => {
+    if (subscription?.currentPeriodEnd) {
+      handleCreateCustomerPortal();
+    } else {
+      router.push("/billing/pricing");
+    }
+  };
+
+  const handleClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // preview image
+    const previewUrl = URL.createObjectURL(file);
+    setPreview(previewUrl);
+
+    // notify parent
+    handleImageUpload(file);
   };
 
   return (
@@ -171,10 +212,44 @@ export function UserManagementTemplate({
           <Card className="bg-card border border-border">
             <CardContent className="p-8">
               <div className="flex items-start gap-8">
-                <div className="flex-shrink-0">
-                  <div className="w-24 h-24 gradient-bg rounded-full flex items-center justify-center">
-                    <User className="w-12 h-12 text-white" />
-                  </div>
+                <div className="relative group w-fit">
+                  <Avatar className="size-24">
+                    <AvatarImage
+                      src={preview || userData.profile || ""}
+                      className="object-cover object-center w-full h-full"
+                    />
+                    <AvatarFallback className="m-auto bg-primary text-primary-foreground text-sm font-bold rounded-full">
+                      <div className="flex-shrink-0">
+                        <div className="size-24 gradient-bg rounded-full flex items-center justify-center">
+                          <User className="w-12 h-12 text-white" />
+                        </div>
+                      </div>
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                    </div>
+                  )}
+
+                  {/* Camera Button Overlay */}
+                  <Button
+                    type="button"
+                    onClick={handleClick}
+                    disabled={isUploading}
+                    className="p-2 absolute bottom-1 right-1 bg-muted rounded-full shadow-md hover:bg-accent transition-opacity opacity-0 group-hover:opacity-100"
+                  >
+                    <Camera className="w-4 h-4 text-foreground" />
+                  </Button>
+
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
                 </div>
                 <div className="flex-1 space-y-6">
                   {isEditing ? (
@@ -454,6 +529,55 @@ export function UserManagementTemplate({
               </CardContent>
             </Card>
           )}
+          <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl shadow-lg p-8">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <p className="text-blue-100 text-sm mb-1">Current Plan</p>
+                <h3 className="text-3xl font-bold">{subscription?.planName}</h3>
+              </div>
+              <span className="bg-white/30 backdrop-blur px-3 py-1 rounded-full text-sm font-medium">
+                {subscription ? "active" : "inactive"}
+              </span>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6 mb-6">
+              <div>
+                <p className="text-blue-100 text-sm mb-1">Amount</p>
+                <p className="text-2xl font-bold">
+                  ₹{subscription?.price}
+                  <span className="text-base">
+                    {subscription?.billingCycle === "monthly" ? "/mo" : "/yr"}
+                  </span>
+                </p>
+              </div>
+              <div>
+                <p className="text-blue-100 text-sm mb-1">Ends At</p>
+                <p className="text-lg font-semibold">
+                  {subscription?.currentPeriodEnd &&
+                    format(
+                      new Date(subscription.currentPeriodEnd),
+                      "MMM d, yyyy"
+                    )}
+                </p>
+              </div>
+              <div>
+                <p className="text-blue-100 text-sm mb-1">Member Since</p>
+                <p className="text-lg font-semibold">
+                  {subscription?.createdAt &&
+                    format(new Date(subscription.createdAt), "MMM d, yyyy")}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={handleManagePlan}
+                className="bg-white text-blue-600 px-6 py-2 rounded-lg font-medium hover:bg-blue-50 transition"
+              >
+                Manage Plan
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </main>

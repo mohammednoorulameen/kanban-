@@ -6,6 +6,17 @@ export const config = {
     HOST: process.env.SERVER_HOST || "localhost",
     PORT: parseInt(process.env.PORT || "5000", 10),
   },
+  
+  cookies: {
+    REFRESH_COOKIE_MAXAGE: process.env.REFRESH_COOKIE_MAXAGE || 604800000,
+    ACCESS_COOKIE_MAXAGE: process.env.ACCESS_COOKIE_MAXAGE || 300000,
+  },
+
+  cloudinary: {
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
+  },
 
   database: {
     URI: process.env.DATABASE_URI || "mongodb://localhost:27017/kanbanly",
@@ -35,9 +46,16 @@ export const config = {
   },
 
   redis: {
-    USER: process.env.REDIS_USER || 'default',
-    PASS: process.env.REDIS_PASS || '',
+    USER: process.env.REDIS_USER || "default",
+    PASS: process.env.REDIS_PASS || "",
     HOST: process.env.REDIS_HOST,
     PORT: process.env.REDIS_PORT,
+  },
+
+  stripe: {
+    currency: "inr",
+    STRIPE_SERCRET: process.env.STRIPE_SECRET_KEY,
+    WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET!,
+    STRIPE_FRONTEND_URL: process.env.CORS_ALLOWED_ORIGIN,
   },
 };

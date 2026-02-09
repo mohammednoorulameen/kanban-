@@ -9,8 +9,16 @@ import { IInvitationRepository } from "../types/repository-interfaces/IInvitatio
 import { InvitationRepository } from "../repositories/invitation.repository";
 import { IProjectRepository } from "../types/repository-interfaces/IProjectRepository";
 import { ProjectRepository } from "../repositories/project.repository";
-import { ITaskRepository } from "../types/repository-interfaces/ITaskRepository";
-import { TaskRepository } from "../repositories/task.repository";
+import { IWorkItemRepository } from "../types/repository-interfaces/IWorkItemRepository";
+import { WorkItemRepository } from "../repositories/task.repository";
+import { IPlanRepository } from "../types/repository-interfaces/IPlanRepository";
+import { PlanRepository } from "../repositories/plan.repository";
+import { ISubscriptionRepository } from "../types/repository-interfaces/ISubscriptionRepository";
+import { SubscriptionRepository } from "../repositories/subscription.repository";
+import { IEpicRepository } from "../types/repository-interfaces/IEpicRepository";
+import { EpicRepository } from "../repositories/epic.repository";
+import { ISprintRepository } from "../types/repository-interfaces/ISprintRepository";
+import { SprintRepository } from "../repositories/sprint.repository";
 
 export class RepositoryRegistry {
   static registerRepositories(): void {
@@ -32,8 +40,20 @@ export class RepositoryRegistry {
     container.register<IProjectRepository>("IProjectRepository", {
       useClass: ProjectRepository,
     });
-    container.register<ITaskRepository>("ITaskRepository", {
-      useClass: TaskRepository,
+    container.register<IWorkItemRepository>("IWorkItemRepository", {
+      useClass: WorkItemRepository,
+    });
+    container.register<IPlanRepository>("IPlanRepository", {
+      useClass: PlanRepository,
+    });
+    container.register<ISubscriptionRepository>("ISubscriptionRepository", {
+      useClass: SubscriptionRepository,
+    });
+    container.register<IEpicRepository>("IEpicRepository", {
+      useClass: EpicRepository,
+    });
+    container.register<ISprintRepository>("ISprintRepository", {
+      useClass: SprintRepository,
     });
   }
 }

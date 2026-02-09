@@ -38,5 +38,27 @@ export interface WorkspaceMember {
   _id: string;
   name: string;
   email: string;
+  profile?: string;
   role: workspaceRoles;
+  isActive: boolean;
+}
+
+export interface EditWorkspaceMember {
+  workspaceId: string;
+  data: { memberId: string; role?: workspaceRoles; isActive?: boolean };
+}
+
+export enum invitationStatus {
+  pending = "pending",
+  accepted = "accepted",
+  rejected = "rejected",
+  expired = "expired",
+}
+
+export interface InvitationList {
+  invitedEmail: string;
+  invitedBy: string;
+  role: workspaceRoles;
+  status: invitationStatus;
+  expiresAt: Date;
 }

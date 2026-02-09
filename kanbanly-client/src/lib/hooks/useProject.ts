@@ -5,8 +5,10 @@ import {
   createProject,
   editProject,
   getAllProjects,
+  getMembers,
   getOneProject,
   removeProject,
+  removeProjectMember,
 } from "../api/project";
 import {
   IProject,
@@ -14,6 +16,7 @@ import {
   ProjectEditingArgs,
 } from "../api/project/project.types";
 import { useToastMessage } from "./useToastMessage";
+import { WorkspaceMember } from "../api/workspace/workspace.types";
 
 export const useCreateProject = () => {
   const toast = useToastMessage();
@@ -41,10 +44,20 @@ export const useCreateProject = () => {
   });
 };
 
-export const useGetAllProjects = (workspaceId: string) => {
+export const useGetAllProjects = (
+  workspaceId: string,
+  filters: {
+    search?: string;
+    memberCount?: { min?: number; max?: number };
+  },
+  sorting?: {
+    sortBy?: string;
+    order?: string;
+  }
+) => {
   return useQuery<ApiResponse<IProject[]>, Error>({
-    queryKey: ["getProjects", workspaceId],
-    queryFn: () => getAllProjects({ workspaceId }),
+    queryKey: ["getProjects", workspaceId, filters, sorting],
+    queryFn: () => getAllProjects({ workspaceId, filters, sorting }),
     enabled: !!workspaceId,
   });
 };
@@ -104,6 +117,7 @@ export const useRemoveProject = (options?: {
 
 export const useAddMember = () => {
   const toast = useToastMessage();
+  const queryClient = useQueryClient();
 
   return useMutation<
     ApiResponse,
@@ -118,6 +132,7 @@ export const useAddMember = () => {
         description: response.message,
         duration: 6000,
       });
+      queryClient.invalidateQueries({ queryKey: ["getProjectMembers"] });
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || "Unexpected Error";
@@ -127,5 +142,31 @@ export const useAddMember = () => {
         duration: 6000,
       });
     },
+  });
+};
+
+export const useGetProjectMembers = (
+  workspaceId: string,
+  projectId: string
+) => {
+  return useQuery<ApiResponse<WorkspaceMember[]>, Error>({
+    queryKey: ["getProjectMembers", workspaceId],
+    queryFn: () => getMembers(workspaceId, projectId),
+    enabled: !!workspaceId,
+  });
+};
+
+export const useRemoveProjectMember = (options?: {
+  onSuccess?: (response: ApiResponse) => void;
+  onError?: (error: unknown) => void;
+}) => {
+  return useMutation<
+    ApiResponse,
+    Error,
+    { workspaceId: string; projectId: string; memberId: string }
+  >({
+    mutationKey: ["removeProjectMember"],
+    mutationFn: removeProjectMember,
+    ...options,
   });
 };

@@ -1,243 +1,257 @@
 "use client";
-import { useState } from "react";
 import {
-  Plus,
-  Search,
-  Filter,
-  ArrowUpDown,
-  Calendar,
-  CheckCircle2,
-  User,
-  Trash,
-} from "lucide-react";
-import { Button } from "@/components/atoms/button";
-import { Input } from "@/components/atoms/input";
-import { TaskListing } from "@/lib/api/task/task.types";
-import { TaskStatus } from "@/types/task.enum";
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
+import { TaskCreationPayload, TaskListing } from "@/lib/api/task/task.types";
+import { TaskPriority, TaskStatus } from "@/types/task.enum";
+import { projectTemplate } from "@/types/project.enum";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import { CreateTaskModal } from "@/components/organisms/task/CreateTask";
-import { ConfirmationModal } from "@/components/organisms/admin/ConfirmationModal";
+import { TaskDetails } from "@/components/organisms/task/TaskDetailModal";
+import { useGetAllSubTasks, useGetOneTask } from "@/lib/hooks/useTask";
+import { BoardView } from "@/components/organisms/project/BoardView";
+import { WorkspaceMember } from "@/lib/api/workspace/workspace.types";
+import { ListView } from "@/components/organisms/project/ListView";
+import {
+  BacklogView,
+  Section,
+} from "@/components/organisms/project/BacklogView";
+import { IEpic } from "@/lib/api/epic/epic.types";
+import { formatDataIntoSections } from "@/lib/task-utils";
+import { ISprint, ISprintResponse } from "@/lib/api/sprint/sprint.types";
+import { TaskPageContext } from "@/contexts/TaskPageContext";
+import { Archive, GanttChart, LayoutGrid, List } from "lucide-react";
 
 interface TaskListingPageTemplateProps {
   projectId: string;
   tasks: TaskListing[] | [];
-  refetchTasks: () => void;
+  createTask: (data: TaskCreationPayload) => void;
+  isCreating: boolean;
+  changeStatus: (newStatus: TaskStatus, taskId: string) => void;
   isRemoving: boolean;
   removeTask: (taskId: string) => void;
+  workspaceId: string;
+  handleEditTask: (taskId: string, data: Partial<TaskCreationPayload>) => void;
+  isEditing: boolean;
+  members: WorkspaceMember[] | [];
+  addEpic: (title: string, color: string) => void;
+  epics: IEpic[] | [];
+  handleParentAttach: (
+    parentType: "epic" | "task",
+    parentId: string,
+    taskId: string
+  ) => void;
+  handleSprintAttach: (taskId: string, sprintId: string) => void;
+  isAttaching: boolean;
+  filters: { status?: string; priority?: string; search?: string };
+  setFilters: Dispatch<
+    SetStateAction<{
+      status?: string;
+      priority?: string;
+      search?: string;
+    }>
+  >;
+  sprints: ISprintResponse[];
+  activeSprint?: ISprint;
 }
 
 function TaskListingPageTemplate({
-  tasks,
   projectId,
-  refetchTasks,
-  isRemoving,
+  tasks,
+  createTask,
+  isCreating,
   removeTask,
+  workspaceId,
+  changeStatus,
+  handleEditTask,
+  isEditing,
+  members,
+  addEpic,
+  epics,
+  handleParentAttach,
+  isAttaching,
+  filters,
+  setFilters,
+  sprints,
+  handleSprintAttach,
+  activeSprint,
 }: TaskListingPageTemplateProps) {
-  const [activeTab, setActiveTab] = useState("List");
-  const tabs = ["Overview", "List", "Board", "Timeline"];
-
   const [selectedTask, setSelectedTask] = useState("");
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const currentProjectTemplate = useSelector(
+    (state: RootState) => state.project.projectTemplate
+  );
+
+  // task fetching according to id
+  const { data: taskData } = useGetOneTask(
+    workspaceId,
+    projectId,
+    selectedTask,
+    {
+      enabled: isTaskModalOpen && !!selectedTask,
+    }
+  );
+
+  const { data: subTasks } = useGetAllSubTasks(
+    workspaceId,
+    projectId,
+    selectedTask,
+    {
+      enabled: isTaskModalOpen && !!selectedTask,
+    }
+  );
+
+  // map tasks to board view format
+  const boardTasks = useMemo(
+    () =>
+      tasks.map((task) => ({
+        taskId: task.taskId,
+        task: task.task,
+        status: task.status,
+        assignedTo: task.assignedTo as WorkspaceMember,
+        workItemType: task.workItemType,
+      })),
+    [tasks]
+  );
+
+  const formatedTasks: Section[] = useMemo(
+    () => formatDataIntoSections(tasks, members, sprints),
+    [tasks, members, sprints]
+  );
+
+  const [activeTab, setActiveTab] = useState("Board");
+  const tabs = ["Board", "List", "Backlog", "Timeline"];
 
   const projectName = useSelector(
     (state: RootState) => state.project.projectName
   );
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  // function handle status change
+  const handleStatusChange = useCallback(
+    (value: TaskStatus, taskId: string) => {
+      changeStatus(value, taskId);
+    },
+    [changeStatus]
+  );
 
-  const toggleTaskComplete = (taskId: string) => {};
+  // function to handle priority change
+  const handlePriorityChange = useCallback(
+    (value: TaskPriority, taskId: string) => {
+      handleEditTask(taskId, { priority: value });
+    },
+    [handleEditTask]
+  );
+
+  const contextValue = {
+    members,
+    epics,
+    setSelectedTask,
+    setIsTaskModalOpen,
+    onInvite: handleEditTask,
+    handleParentAttach,
+    handleStatusChange,
+    isAttaching,
+    activeSprint,
+  };
 
   return (
-    <div className="min-h-screen bg-background max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="border-b border-border bg-card">
-        <div className="flex items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4 text-primary-foreground" />
+    <TaskPageContext.Provider value={contextValue}>
+      <div className="bg-background">
+        {/* Header */}
+        <div className="border-b border-border">
+          <div className="flex items-center justify-between px-6 py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-semibold text-foreground">
+                  {projectName}
+                </h1>
               </div>
-              <h1 className="text-lg font-semibold text-foreground">
-                {projectName}
-              </h1>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="px-6">
-          <div className="flex gap-6">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`py-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-6">
-        {/* Toolbar */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-primary hover:bg-primary/90"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add task
-            </Button>
-            <div className="flex items-center gap-2">
-              <Button
-                className="hover:bg-primary/10"
-                variant="outline"
-                size="sm"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Filter
-              </Button>
-              <Button
-                className="hover:bg-primary/10"
-                variant="outline"
-                size="sm"
-              >
-                <ArrowUpDown className="w-4 h-4 mr-2" />
-                Sort
-              </Button>
             </div>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search tasks..." className="pl-10 w-64" />
-          </div>
-        </div>
-
-        {/* Task Table */}
-        <div className="bg-card rounded-lg border border-border overflow-hidden">
-          {/* Table Header */}
-          <div className="grid grid-cols-[40px_1fr_200px_200px_40px] gap-4 p-4 bg-muted/50 border-b border-border text-sm font-medium text-muted-foreground">
-            <div></div>
-            <div>Name</div>
-            <div>Assignee</div>
-            <div>Due date</div>
-          </div>
-
-          {/* Tasks */}
-          {tasks.length ? (
-            tasks.map((task) => (
-              <div
-                key={task.taskId}
-                className="grid grid-cols-[40px_1fr_200px_200px_40px] gap-4 p-4 border-b border-border hover:bg-muted/30 transition-colors group"
-              >
-                <div className="flex items-center">
+          {/* Navigation Tabs */}
+          <div className="px-6">
+            <div className="flex gap-6">
+              {tabs.map((tab) => {
+                if (
+                  tab === "Backlog" &&
+                  currentProjectTemplate !== projectTemplate.scrum
+                ) {
+                  return null;
+                }
+                return (
                   <button
-                    onClick={() => toggleTaskComplete(task.taskId)}
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      task.status === TaskStatus.Completed
-                        ? "bg-accent border-accent "
-                        : "border-muted-foreground hover:border-accent"
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`py-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                      activeTab === tab
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {task.status === TaskStatus.Completed && (
-                      <CheckCircle2 className="w-full h-full" />
-                    )}
+                    {tab === "Board" && <LayoutGrid size={16} />}
+                    {tab === "List" && <List size={16} />}
+                    {tab === "Backlog" && <Archive size={16} />}
+                    {tab === "Timeline" && <GanttChart size={16} />}
+                    {tab}
                   </button>
-                </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
-                <div className="flex items-center">
-                  <span
-                    className={`${
-                      task.status === TaskStatus.Completed
-                        ? "text-muted-foreground"
-                        : "text-foreground"
-                    }`}
-                  >
-                    {task.task}
-                  </span>
-                </div>
+        {/* Content */}
+        <div className="p-6">
+          {activeTab === "Board" && (
+            <BoardView
+              tasksData={boardTasks}
+              createTask={createTask}
+              isCreating={isCreating}
+              handleStatusChange={handleStatusChange}
+              setActiveTab={setActiveTab}
+            />
+          )}
 
-                <div className="flex items-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 hover:bg-transparent"
-                  >
-                    <User className="w-4 h-4 text-muted-foreground" />
-                  </Button>
-                </div>
+          {activeTab === "List" && (
+            <ListView
+              projectId={projectId}
+              tasks={tasks}
+              handlePriorityChange={handlePriorityChange}
+              handleStatusChange={handleStatusChange}
+              filters={filters}
+              setFilters={setFilters}
+            />
+          )}
 
-                <div className="flex items-center">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="p-0 hover:bg-transparent"
-                  >
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    {task.dueDate ? (
-                      <span>
-                        {new Date(task.dueDate).toLocaleDateString("en-IN", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </span>
-                    ) : (
-                      ""
-                    )}
-                  </Button>
-                </div>
-
-                <div className="flex items-center relative">
-                  <Button
-                    onClick={() => {
-                      setSelectedTask(task.taskId);
-                      setIsConfirmationOpen(true);
-                    }}
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-transparent"
-                  >
-                    <Trash className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="w-full p-4 text-center">No Tasks</div>
+          {activeTab === "Backlog" && (
+            <BacklogView
+              addEpic={addEpic}
+              sectionsData={formatedTasks}
+              createTask={createTask}
+              handleStatusChange={handleStatusChange}
+              handleSprintAttach={handleSprintAttach}
+              setActiveTab={setActiveTab}
+            />
           )}
         </div>
+
+        <TaskDetails
+          handleEditTask={handleEditTask}
+          createTask={createTask}
+          removeTask={removeTask}
+          isVisible={isTaskModalOpen}
+          close={() => setIsTaskModalOpen(false)}
+          task={taskData && taskData.data}
+          isEditing={isEditing}
+          subTasks={subTasks?.data}
+        />
       </div>
-      <CreateTaskModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        projectId={projectId}
-        refetchTasks={refetchTasks}
-      />
-      <ConfirmationModal
-        isOpen={isConfirmationOpen}
-        onClose={() => setIsConfirmationOpen(false)}
-        onConfirm={() => {
-          removeTask(selectedTask);
-          setSelectedTask("");
-          setIsConfirmationOpen(false);
-        }}
-        title="Are you sure you want to remove this task?"
-        description="This action cannot be undone. The task will be permanently deleted from the project."
-        cancelText="Cancel"
-        confirmText="Delete Task"
-      />
-    </div>
+    </TaskPageContext.Provider>
   );
 }
 

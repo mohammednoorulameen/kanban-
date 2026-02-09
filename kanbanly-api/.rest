@@ -1,10 +1,9 @@
 ### Login Request
-POST http://localhost:5000/api/v1/signup
+POST http://localhost:5000/api/v1/workspace/create
 Content-Type: application/json
 
 {
-  "email": "fehage7201@cameltok.com",
-  "firstName": "Mohammed Noorul",
-  "lastName": "Ameen",
-  "password": "12345."
+  "name": "My Workspace",
+  "description":"some description",
+  "logo":"logo.png"
 }

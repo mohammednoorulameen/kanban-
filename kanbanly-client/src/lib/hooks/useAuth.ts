@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   LoginPayload,
   LoginResponseData,
@@ -43,7 +43,7 @@ export const useSignup = () => {
   >({
     mutationKey: ["signup"],
     mutationFn: signup,
-    onSuccess: (response) => {
+    onSuccess: () => {
       router.push("/signup-success");
     },
     onError: (error: any) => {
@@ -60,7 +60,6 @@ export const useSignup = () => {
 
 export const useLogin = () => {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const toast = useToastMessage();
   const dispatch = useDispatch();
 
@@ -76,8 +75,12 @@ export const useLogin = () => {
       });
 
       setStorageItem("isAuthenticated", "true");
+      if (response.data?.profile) {
+        setStorageItem("profile", response.data?.profile);
+      }
       dispatch(
         setCredentials({
+          profile: response.data?.profile,
           isAuthenticated: true,
         })
       );
@@ -113,8 +116,12 @@ export const useGoogleAuth = () => {
       });
 
       setStorageItem("isAuthenticated", "true");
+      if (response.data?.profile) {
+        setStorageItem("profile", response.data?.profile);
+      }
       dispatch(
         setCredentials({
+          profile: response.data?.profile,
           isAuthenticated: true,
         })
       );
@@ -149,8 +156,12 @@ export const useVerifyEmail = () => {
       });
 
       setStorageItem("isAuthenticated", "true");
+      if (response.data?.profile) {
+        setStorageItem("profile", response.data?.profile);
+      }
       dispatch(
         setCredentials({
+          profile: response.data?.profile,
           isAuthenticated: true,
         })
       );
@@ -280,9 +291,12 @@ export const useAdminLogin = () => {
       });
 
       setStorageItem("isAdminAuthenticated", "true");
-
+      if (response.data?.profile) {
+        setStorageItem("profile", response.data?.profile);
+      }
       dispatch(
         setCredentials({
+          profile: response.data?.profile,
           isAdminAuthenticated: true,
         })
       );

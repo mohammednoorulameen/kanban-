@@ -6,8 +6,9 @@ import AppError from "../shared/utils/AppError";
 import { HTTP_STATUS } from "../shared/constants/http.status";
 import { ERROR_MESSAGES } from "../shared/constants/messages";
 import { config } from "../config";
-import { IUser } from "../types/entities/IUser";
 import { IEmailService } from "../types/service-interface/IEmailService";
+import { AuthEvent, authEvents } from "../events/auth.events";
+import { ProcessVerificationResponseDto } from "../types/dtos/users/user-response.dto";
 
 @injectable()
 export class VerificationService implements IVerificationService {
@@ -40,7 +41,9 @@ export class VerificationService implements IVerificationService {
     );
   }
 
-  async processVerification(token: string): Promise<IUser> {
+  async processVerification(
+    token: string
+  ): Promise<ProcessVerificationResponseDto> {
     const userEmail = this._tokenService.verifyEmailToken(token);
     if (!userEmail) {
       throw new AppError(
@@ -72,6 +75,15 @@ export class VerificationService implements IVerificationService {
       );
     }
 
-    return newUser;
+    authEvents.emit(AuthEvent.EmailVerified, { userId: newUser.userId });
+
+    return {
+      userId: newUser.userId,
+      email: newUser.email,
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+      profile: newUser.profile,
+      isAdmin: newUser.isAdmin,
+    };
   }
 }

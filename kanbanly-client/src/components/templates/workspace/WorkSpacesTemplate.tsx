@@ -1,15 +1,24 @@
 "use client";
 import { motion } from "framer-motion";
-import { User, Plus, LogOut } from "lucide-react";
+import { User, Plus, LogOut, Gem } from "lucide-react";
 import { ThemeToggleButton } from "../../molecules/ThemeToggleButton";
 import { IWorkspace } from "@/lib/api/workspace/workspace.types";
 import { useRouter } from "next/navigation";
 import { getWorkspaceIcon } from "@/lib/utils";
 import WorkspaceIconDisplay from "@/components/atoms/WorkspaceIconDisplay";
 import Link from "next/link";
-import { useDispatch } from "react-redux";
-import { AppDispatch } from "@/store";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "@/store";
 import { setWorkspaceData } from "@/store/slices/workSpaceSlice";
+import Logo from "@/components/atoms/logo";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/atoms/dropdown-menu";
+import { Button } from "@/components/atoms/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 
 interface WorkSpacesTemplateProps {
   handleLogout: () => void;
@@ -22,6 +31,7 @@ const WorkSpacesTemplate = ({
 }: WorkSpacesTemplateProps) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const profile = useSelector((state: RootState) => state.auth.profile);
 
   function handleWorkspaceClick(workspaceId: string) {
     dispatch(setWorkspaceData({ workspaceId }));
@@ -42,31 +52,47 @@ const WorkSpacesTemplate = ({
         className="flex justify-between items-center p-6 lg:px-12"
       >
         <div className="flex items-center space-x-3">
-          <div
-            className={`w-10 h-10 rounded-xl from-blue-500 to-purple-600 flex items-center justify-center`}
-          >
-            <span className="text-white font-bold text-lg">K</span>
-          </div>
-          <h1 className={`text-2xl font-bold text-foreground`}>Kanbanly</h1>
+          <Logo />
         </div>
 
         <div className="flex items-center space-x-4">
+          <Link className="flex gap-2" href="/billing/pricing">
+            <Gem className="h-4 w-4" />
+          </Link>
           <ThemeToggleButton />
-          <div
-            className={`w-10 h-10 rounded-full from-gray-400 to-gray-600 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform`}
-          >
-            <User className="w-5 h-5 text-white" />
-          </div>
-          {/* Logout Button */}
-          <motion.button
-            onClick={handleLogout}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer text-white transition-all duration-300`}
-            aria-label="Logout"
-          >
-            <LogOut className="w-5 h-5" />
-          </motion.button>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="py-0 flex items-start" asChild>
+              <Avatar className="size-6">
+                <AvatarImage src={profile} />
+                <AvatarFallback className="bg-transparent text-primary-foreground text-sm font-bold rounded-full">
+                  <User className="w-5 h-5 transition-transform duration-500 ease-in hover:scale-x-[-1] cursor-pointer" />
+                </AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="bg-sidebar p-3 mt-2 mr-9 rounded-xl border flex flex-col gap-2 text-sm items-start text-start"
+              side="bottom"
+              align="start"
+            >
+              <DropdownMenuItem asChild>
+                <Link
+                  className="flex items-center gap-2 p-2 rounded-sm focus:outline-none focus-visible:border-none"
+                  href="/user"
+                >
+                  <User className="size-4" /> Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Button
+                  onClick={handleLogout}
+                  variant="ghost"
+                  className="w-full flex justify-start hover:bg-transparent !p-2 h-fit focus-visible:ring-0 focus-visible:ring-offset-0"
+                >
+                  <LogOut /> Logout
+                </Button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </motion.header>
 

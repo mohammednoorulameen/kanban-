@@ -18,10 +18,13 @@ import { IWorkspaceMemberRepository } from "../types/repository-interfaces/IWork
 import { IWorkspaceMember } from "../types/entities/IWorkspaceMember";
 import { ERROR_MESSAGES } from "../shared/constants/messages";
 import { IProjectRepository } from "../types/repository-interfaces/IProjectRepository";
-import { ITaskRepository } from "../types/repository-interfaces/ITaskRepository";
+import { IWorkItemRepository } from "../types/repository-interfaces/IWorkItemRepository";
+import { normalizeString } from "../shared/utils/stringNormalizer";
+import { ISubscriptionService } from "../types/service-interface/ISubscriptionService";
 
 @injectable()
 export class WorkspaceService implements IWorkspaceService {
+  private _slugify;
   constructor(
     @inject("IWorkspaceRepository")
     private _workspaceRepo: IWorkspaceRepository,
@@ -30,15 +33,33 @@ export class WorkspaceService implements IWorkspaceService {
     @inject("IWorkspaceMemberRepository")
     private _workspaceMemberRepo: IWorkspaceMemberRepository,
     @inject("IProjectRepository") private _projectRepo: IProjectRepository,
-    @inject("ITaskRepository") private _taskRepo: ITaskRepository
-  ) {}
-
-  private slugify(name: string) {
-    return name.toLowerCase().replace(/\s+/g, "-");
+    @inject("IWorkItemRepository") private _workItemRepo: IWorkItemRepository,
+    @inject("ISubscriptionService")
+    private _subscriptionService: ISubscriptionService
+  ) {
+    this._slugify = normalizeString;
   }
 
   async createWorkspace(workspaceData: CreateWorkspaceDto): Promise<void> {
-    const slugName = this.slugify(workspaceData.name);
+    const slugName = this._slugify(workspaceData.name);
+
+    const subscription = await this._subscriptionService.getUserSubscription(
+      workspaceData.createdBy
+    );
+    const workspaces = await this._workspaceRepo.find({
+      createdBy: workspaceData.createdBy,
+    });
+
+    const workspaceLimit = subscription?.limits.workspaces;
+    if (
+      workspaceLimit !== "unlimited" &&
+      Number(workspaceLimit) <= workspaces.length
+    ) {
+      throw new AppError(
+        ERROR_MESSAGES.WORKSPACE_LIMIT_EXCEED,
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
 
     const isExists = await this._workspaceRepo.findOne({
       createdBy: workspaceData.createdBy,
@@ -148,7 +169,7 @@ export class WorkspaceService implements IWorkspaceService {
 
     let slugName;
     if (data.name) {
-      slugName = this.slugify(data.name);
+      slugName = this._slugify(data.name);
       const isExists = await this._workspaceRepo.findOne({
         createdBy: data.createdBy,
         slug: slugName,
@@ -192,7 +213,7 @@ export class WorkspaceService implements IWorkspaceService {
 
     await this._workspaceMemberRepo.deleteMany({ workspaceId });
     await this._projectRepo.deleteMany({ workspaceId });
-    await this._taskRepo.deleteMany({ workspaceId });
+    await this._workItemRepo.deleteMany({ workspaceId });
     await this._workspaceRepo.delete({ workspaceId });
   }
 }

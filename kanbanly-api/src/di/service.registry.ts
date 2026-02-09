@@ -25,6 +25,18 @@ import { ITaskService } from "../types/service-interface/ITaskService";
 import { TaskService } from "../services/task.service";
 import { IUserService } from "../types/service-interface/IUserService";
 import { UserService } from "../services/user.service";
+import { IPlanService } from "../types/service-interface/IPlanService";
+import { PlanService } from "../services/plan.service";
+import { ISubscriptionService } from "../types/service-interface/ISubscriptionService";
+import { SubscriptionService } from "../services/subscription.service";
+import { IWebhookService } from "../types/service-interface/IWebhookService";
+import { WebhookService } from "../services/webhook.service";
+import { IEpicService } from "../types/service-interface/IEpicService";
+import { EpicService } from "../services/epic.service";
+import { ISprintService } from "../types/service-interface/ISprintService";
+import { SprintService } from "../services/sprint.service";
+import { ICloudinaryService } from "../types/service-interface/ICloudinaryService";
+import { CloudinaryService } from "../services/cloudinary.service";
 
 export class ServiceRegistry {
   static registerServices(): void {
@@ -66,6 +78,24 @@ export class ServiceRegistry {
     });
     container.register<IUserService>("IUserService", {
       useClass: UserService,
+    });
+    container.register<IPlanService>("IPlanService", {
+      useClass: PlanService,
+    });
+    container.register<ISubscriptionService>("ISubscriptionService", {
+      useClass: SubscriptionService,
+    });
+    container.register<IWebhookService>("IWebhookService", {
+      useClass: WebhookService,
+    });
+    container.register<IEpicService>("IEpicService", {
+      useClass: EpicService,
+    });
+    container.register<ISprintService>("ISprintService", {
+      useClass: SprintService,
+    });
+    container.register<ICloudinaryService>("ICloudinaryService", {
+      useClass: CloudinaryService,
     });
   }
 }

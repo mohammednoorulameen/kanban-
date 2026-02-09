@@ -3,6 +3,7 @@ import { injectable } from "tsyringe";
 import { HTTP_STATUS } from "../shared/constants/http.status";
 import { ERROR_MESSAGES } from "../shared/constants/messages";
 import AppError from "../shared/utils/AppError";
+import logger from "../logger/winston.logger";
 
 @injectable()
 export class ErrorMiddleware {
@@ -10,7 +11,7 @@ export class ErrorMiddleware {
     err: any,
     req: Request,
     res: Response,
-    next: NextFunction
+    _next: NextFunction
   ) {
     let statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR;
     let message = ERROR_MESSAGES.UNEXPECTED_SERVER_ERROR;
@@ -20,10 +21,9 @@ export class ErrorMiddleware {
       message = err.message;
     } else {
       statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
-      message = err.message || ERROR_MESSAGES.UNEXPECTED_SERVER_ERROR;
+      message = ERROR_MESSAGES.UNEXPECTED_SERVER_ERROR;
     }
-    console.error(`[${statusCode}] ${message}`);
-    console.error(err);
+    logger.error(`[${statusCode}] ${message}`,err);
     res.status(statusCode).json({
       success: false,
       message,

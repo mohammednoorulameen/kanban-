@@ -1,3 +1,5 @@
+import { IWorkspaceMember } from "../../entities/IWorkspaceMember";
+
 // workspace roels
 export enum workspaceRoles {
   owner = "owner",
@@ -14,20 +16,22 @@ export interface WorkspaceMemberDto {
 
 // response dto
 export interface WorkspaceMemberResponseDto {
+  _id?: string;
   name: string;
   email: string;
+  profile?: string;
   role: workspaceRoles;
+  isActive: boolean;
 }
 
 // repository dto
 export interface WorkspaceMemberRepoDto {
-  data: {
-    user: {
-      email: string;
-      firstName: string;
-      userId:string
-    };
-    role: workspaceRoles;
-  }[];
+  data: IWorkspaceMember[];
   count: number;
+}
+
+export interface EditWorkspaceMemberDto {
+  memberId: string;
+  role?: workspaceRoles;
+  isActive?: boolean;
 }
