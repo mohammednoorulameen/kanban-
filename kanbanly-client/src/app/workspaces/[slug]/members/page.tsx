@@ -1,6 +1,7 @@
 "use client";
 import WorkspaceMembersTemplates from "@/components/templates/workspace/WorkspaceMembersTemplate";
 import { WorkspaceInvitationPayload } from "@/lib/api/workspace/workspace.types";
+import { useCreateChat } from "@/lib/hooks/useChat";
 import {
   useEditWorkspaceMember,
   useRemoveInvitation,
@@ -11,12 +12,17 @@ import {
 } from "@/lib/hooks/useWorkspace";
 import { RootState } from "@/store";
 import { workspaceRoles } from "@/types/roles.enum";
+import { useQueryClient } from "@tanstack/react-query";
+import { useParams, useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { useSelector } from "react-redux";
 
 export default function WorkspaceMemberPage() {
   const { mutate: SendInvitation, isPending: isLoading } = useSendInvitation();
   const [pageno] = useState(1);
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const params = useParams();
 
   const workspaceId = useSelector(
     (state: RootState) => state.workspace.workspaceId
@@ -33,6 +39,14 @@ export default function WorkspaceMemberPage() {
 
   // member deletion hook
   const { mutate: removeMember } = useRemoveWorkspaceMember();
+
+  // chat creation hook
+  const { mutate: createChat } = useCreateChat({
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ["getChats"] });
+      router.push(`/workspaces/${params.slug}/chats/${response.data?.chatId}`);
+    },
+  });
 
   // invitations hook
   const { data: invitationsData, isFetching: isInvitationsLoading } =
@@ -60,11 +74,15 @@ export default function WorkspaceMemberPage() {
     removeMember({ workspaceId, memberId });
   }
 
+  function handleCreateChat(memberId: string) {
+    createChat({ workspaceId, memberId });
+  }
+
   function handleRemoveInvitation(memberEmail: string) {
     removeInvitation({ workspaceId, userEmail: memberEmail });
   }
 
-  function handleResend(data:WorkspaceInvitationPayload){
+  function handleResend(data: WorkspaceInvitationPayload) {
     SendInvitation({ workspaceId, data });
   }
 
@@ -79,6 +97,7 @@ export default function WorkspaceMemberPage() {
       handleRoleChange={handleRoleChange}
       handleStatusUpdate={handleStatusUpdate}
       handleRemoveMember={handleRemoveMember}
+      handleChat={handleCreateChat}
       isInvitationsLoading={isInvitationsLoading}
       handleRemoveInvitation={handleRemoveInvitation}
       handleResend={handleResend}

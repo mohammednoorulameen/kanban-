@@ -31,6 +31,7 @@ interface IWorkspaceMembersTemplateProps {
   handleRoleChange: (memberId: string, role: workspaceRoles) => void;
   handleStatusUpdate: (memberId: string, isActive: boolean) => void;
   handleRemoveMember: (memberId: string) => void;
+  handleChat: (memberId: string) => void;
   handleRemoveInvitation: (memberEmail: string) => void;
   handleResend: (data: WorkspaceInvitationPayload) => void;
 }
@@ -46,6 +47,7 @@ function WorkspaceMembersTemplates({
   handleRoleChange,
   handleStatusUpdate,
   handleRemoveMember,
+  handleChat,
   handleRemoveInvitation,
   handleResend,
 }: IWorkspaceMembersTemplateProps) {
@@ -56,7 +58,7 @@ function WorkspaceMembersTemplates({
   //   description: "";
   // } | null>();
   const [selectedMemberId, setSelectedMemberId] = useState("");
-  const role = useSelector((state: RootState) => state.workspace.memberRole);
+  const { permissions } = useSelector((state: RootState) => state.workspace);
   const [searchValue, setSearchValue] = useState("");
   const [filteredMembers, setFilteredMembers] = useState<
     WorkspaceMember[] | []
@@ -79,6 +81,7 @@ function WorkspaceMembersTemplates({
   const userRole = useSelector(
     (state: RootState) => state.workspace.memberRole
   );
+  const userId = useSelector((state: RootState) => state.auth.userId);
 
   // table customization
   const handleRemove = (id: string) => {
@@ -90,7 +93,9 @@ function WorkspaceMembersTemplates({
     handleRoleChange,
     handleStatusUpdate,
     handleRemove,
-    role as workspaceRoles
+    handleChat,
+    !!permissions?.workspaceMemberAdd,
+    userId
   );
 
   const invitationColumns = createInvitationColumns(
@@ -132,7 +137,7 @@ function WorkspaceMembersTemplates({
                   />
                 </div>
                 <div className="flex-1 text-end">
-                  {role === "owner" && (
+                  {permissions?.workspaceMemberAdd && (
                     <Button onClick={() => setIsModalOpen(true)}>
                       <UserPlus />
                       Invite Members
@@ -147,6 +152,7 @@ function WorkspaceMembersTemplates({
                   emptyMessage="No Members"
                   isLoading={isMembersLoading}
                   skeletonRows={4}
+                  getRowKey={(row) => row._id}
                 />
               </div>
             </Card>
@@ -168,6 +174,7 @@ function WorkspaceMembersTemplates({
                     emptyMessage="No Invitations"
                     isLoading={isInvitationsLoading}
                     skeletonRows={4}
+                    getRowKey={(row) => row.invitedEmail}
                   />
                 </div>
               </Card>

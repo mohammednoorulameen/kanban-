@@ -3,9 +3,12 @@ import {
   Dispatch,
   SetStateAction,
   useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
+import { Archive, GanttChart, LayoutGrid, List } from "lucide-react";
+import { JSONContent } from "@tiptap/react";
 import { TaskCreationPayload, TaskListing } from "@/lib/api/task/task.types";
 import { TaskPriority, TaskStatus } from "@/types/task.enum";
 import { projectTemplate } from "@/types/project.enum";
@@ -14,6 +17,8 @@ import { RootState } from "@/store";
 import { TaskDetails } from "@/components/organisms/task/TaskDetailModal";
 import { useGetAllSubTasks, useGetOneTask } from "@/lib/hooks/useTask";
 import { BoardView } from "@/components/organisms/project/BoardView";
+import { TaskCompletionModal } from "@/components/organisms/task/TaskCompletionModal";
+import { useGetSignature, useUploadPicture } from "@/lib/hooks/useCloudinary";
 import { WorkspaceMember } from "@/lib/api/workspace/workspace.types";
 import { ListView } from "@/components/organisms/project/ListView";
 import {
@@ -24,7 +29,9 @@ import { IEpic } from "@/lib/api/epic/epic.types";
 import { formatDataIntoSections } from "@/lib/task-utils";
 import { ISprint, ISprintResponse } from "@/lib/api/sprint/sprint.types";
 import { TaskPageContext } from "@/contexts/TaskPageContext";
-import { Archive, GanttChart, LayoutGrid, List } from "lucide-react";
+import { useSocket } from "@/contexts/SocketContext";
+
+import { useToastMessage } from "@/lib/hooks/useToastMessage";
 
 interface TaskListingPageTemplateProps {
   projectId: string;
@@ -57,6 +64,13 @@ interface TaskListingPageTemplateProps {
   >;
   sprints: ISprintResponse[];
   activeSprint?: ISprint;
+  handlePostComment: (content: JSONContent, taskId: string) => void;
+  handleUpdateComment: (
+    content: JSONContent,
+    taskId: string,
+    commentId: string
+  ) => void;
+  handleDeleteComment: (taskId: string, commentId: string) => void;
 }
 
 function TaskListingPageTemplate({
@@ -79,14 +93,44 @@ function TaskListingPageTemplate({
   sprints,
   handleSprintAttach,
   activeSprint,
+  handlePostComment,
+  handleDeleteComment,
+  handleUpdateComment,
 }: TaskListingPageTemplateProps) {
+  const [combinedTasks, setCombinedTasks] = useState<TaskListing[]>([]);
   const [selectedTask, setSelectedTask] = useState("");
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [pendingCompletionTaskId, setPendingCompletionTaskId] = useState<
+    string | null
+  >(null);
+
+  const { data: cloudinaryResponse } = useGetSignature();
+  const cloudinarySignature = cloudinaryResponse?.data;
+  const { mutateAsync: uploadPicture, isPending: isUploadingAttachment } =
+    useUploadPicture();
+  const toast = useToastMessage();
+
   const currentProjectTemplate = useSelector(
     (state: RootState) => state.project.projectTemplate
   );
 
-  // task fetching according to id
+  const { tasks: socketTasks } = useSocket();
+
+  useEffect(() => {
+    const map = new Map();
+
+    tasks.forEach((task) => {
+      map.set(task.taskId, task);
+    });
+
+    socketTasks.forEach((sckttask) => {
+      map.set(sckttask.taskId, sckttask);
+    });
+
+    setCombinedTasks(Array.from(map.values()));
+  }, [tasks, socketTasks]);
+
+  // single task fetching
   const { data: taskData } = useGetOneTask(
     workspaceId,
     projectId,
@@ -106,25 +150,27 @@ function TaskListingPageTemplate({
   );
 
   // map tasks to board view format
-  const boardTasks = useMemo(
-    () =>
-      tasks.map((task) => ({
-        taskId: task.taskId,
-        task: task.task,
-        status: task.status,
-        assignedTo: task.assignedTo as WorkspaceMember,
-        workItemType: task.workItemType,
-      })),
-    [tasks]
-  );
+  const boardTasks = useMemo(() => {
+    const filtered = activeSprint
+      ? combinedTasks.filter((t) => t.sprintId === activeSprint.sprintId)
+      : combinedTasks;
+
+    return filtered.map((task) => ({
+      taskId: task.taskId,
+      task: task.task,
+      status: task.status,
+      assignedTo: task.assignedTo as WorkspaceMember,
+      workItemType: task.workItemType,
+    }));
+  }, [combinedTasks, activeSprint]);
 
   const formatedTasks: Section[] = useMemo(
-    () => formatDataIntoSections(tasks, members, sprints),
-    [tasks, members, sprints]
+    () => formatDataIntoSections(combinedTasks, members, sprints),
+    [combinedTasks, members, sprints]
   );
 
   const [activeTab, setActiveTab] = useState("Board");
-  const tabs = ["Board", "List", "Backlog", "Timeline"];
+  const tabs = ["Board", "List", "Backlog"];
 
   const projectName = useSelector(
     (state: RootState) => state.project.projectName
@@ -133,10 +179,79 @@ function TaskListingPageTemplate({
   // function handle status change
   const handleStatusChange = useCallback(
     (value: TaskStatus, taskId: string) => {
-      changeStatus(value, taskId);
+      if (value === TaskStatus.Completed) {
+        setPendingCompletionTaskId(taskId);
+      } else {
+        changeStatus(value, taskId);
+      }
     },
     [changeStatus]
   );
+
+  const handleCompletionConfirm = async (file: File | null) => {
+    if (!pendingCompletionTaskId) return;
+
+    try {
+      if (file) {
+        if (!cloudinarySignature) {
+          toast.showError({
+            title: "Uploading failed!",
+            description:
+              "Failed to fetch signature try again or contact support",
+            duration: 6000,
+          });
+          return;
+        }
+
+        const { timeStamp, signature, apiKey, cloudName } = cloudinarySignature;
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("api_key", apiKey);
+        formData.append("timestamp", String(timeStamp));
+        formData.append("signature", signature);
+        formData.append("folder", "avatars");
+
+        const response = await uploadPicture({ cloudName, data: formData });
+
+        if (response.secure_url) {
+          const attachmentComment: JSONContent = {
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  {
+                    type: "text",
+                    text: "Task completed with attachment: ",
+                  },
+                  {
+                    type: "text",
+                    marks: [
+                      {
+                        type: "link",
+                        attrs: {
+                          href: response.secure_url,
+                          target: "_blank",
+                        },
+                      },
+                    ],
+                    text: "View Attachment",
+                  },
+                ],
+              },
+            ],
+          };
+          handlePostComment(attachmentComment, pendingCompletionTaskId);
+        }
+      }
+
+      changeStatus(TaskStatus.Completed, pendingCompletionTaskId);
+    } catch (error) {
+      console.error("Failed to complete task with attachment:", error);
+    } finally {
+      setPendingCompletionTaskId(null);
+    }
+  };
 
   // function to handle priority change
   const handlePriorityChange = useCallback(
@@ -160,9 +275,9 @@ function TaskListingPageTemplate({
 
   return (
     <TaskPageContext.Provider value={contextValue}>
-      <div className="bg-background">
+      <div className="min-h-[calc(100vh-75px)] bg-slate-50/50 dark:bg-background transition-colors duration-300">
         {/* Header */}
-        <div className="border-b border-border">
+        <div className="border-b border-border sticky top-[75px] z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex items-center justify-between px-6 py-3">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
@@ -209,7 +324,7 @@ function TaskListingPageTemplate({
         <div className="p-6">
           {activeTab === "Board" && (
             <BoardView
-              tasksData={boardTasks}
+              tasksData={boardTasks ? boardTasks : []}
               createTask={createTask}
               isCreating={isCreating}
               handleStatusChange={handleStatusChange}
@@ -220,7 +335,7 @@ function TaskListingPageTemplate({
           {activeTab === "List" && (
             <ListView
               projectId={projectId}
-              tasks={tasks}
+              tasks={combinedTasks}
               handlePriorityChange={handlePriorityChange}
               handleStatusChange={handleStatusChange}
               filters={filters}
@@ -240,15 +355,27 @@ function TaskListingPageTemplate({
           )}
         </div>
 
-        <TaskDetails
-          handleEditTask={handleEditTask}
-          createTask={createTask}
-          removeTask={removeTask}
-          isVisible={isTaskModalOpen}
-          close={() => setIsTaskModalOpen(false)}
-          task={taskData && taskData.data}
-          isEditing={isEditing}
-          subTasks={subTasks?.data}
+        {taskData?.data && (
+          <TaskDetails
+            handleEditTask={handleEditTask}
+            createTask={createTask}
+            removeTask={removeTask}
+            isVisible={isTaskModalOpen}
+            close={() => setIsTaskModalOpen(false)}
+            task={taskData.data}
+            isEditing={isEditing}
+            subTasks={subTasks?.data}
+            handlePostComment={handlePostComment}
+            handleUpdateComment={handleUpdateComment}
+            handleDeleteComment={handleDeleteComment}
+          />
+        )}
+
+        <TaskCompletionModal
+          isOpen={!!pendingCompletionTaskId}
+          onClose={() => setPendingCompletionTaskId(null)}
+          onConfirm={handleCompletionConfirm}
+          isUploading={isUploadingAttachment}
         />
       </div>
     </TaskPageContext.Provider>

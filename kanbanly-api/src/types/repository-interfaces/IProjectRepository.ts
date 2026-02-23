@@ -1,5 +1,8 @@
+import { FilterQuery } from "mongoose";
 import { IProject } from "../entities/IProject";
 import { IBaseRepository } from "./IBaseRepositroy";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface IProjectRepository extends IBaseRepository<IProject> {}
+export interface IProjectRepository extends IBaseRepository<IProject> {
+  countCreatedThisMonth(workspaceId: string): Promise<number>;
+  countProjects(query?: FilterQuery<IProject>): Promise<number>;
+}

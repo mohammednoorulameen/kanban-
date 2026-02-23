@@ -11,12 +11,13 @@ import { ITokenService } from "../types/service-interface/ITokenService";
 import { IEmailService } from "../types/service-interface/IEmailService";
 import { ICacheService } from "../types/service-interface/ICacheService";
 import { config } from "../config";
-import { AuthEvent, authEvents } from "../events/auth.events";
+import { AppEvent, appEvents } from "../events/app.events";
 import {
   AuthUserResponseDto,
   responseDataDto,
   userDto,
 } from "../types/dtos/auth/auth.dto";
+import { IPreferenceService } from "../types/service-interface/IPreferenceService";
 
 @injectable()
 export class AuthService implements IAuthService {
@@ -26,7 +27,8 @@ export class AuthService implements IAuthService {
     @inject("IGoogleService") private _googleService: IGoogleService,
     @inject("ITokenService") private _tokenService: ITokenService,
     @inject("IEmailService") private _emailService: IEmailService,
-    @inject("ICacheService") private _cache: ICacheService
+    @inject("ICacheService") private _cache: ICacheService,
+    @inject("IPreferenceService") private _preferenceService: IPreferenceService
   ) {}
 
   async register(user: userDto): Promise<AuthUserResponseDto> {
@@ -48,7 +50,7 @@ export class AuthService implements IAuthService {
       profile,
     });
 
-    authEvents.emit(AuthEvent.UserRegistered, { userEmail: email });
+    appEvents.emit(AppEvent.UserRegistered, { userEmail: email });
 
     return {
       userId: newUser.userId,
@@ -87,6 +89,13 @@ export class AuthService implements IAuthService {
         "Please verify your email to login",
         HTTP_STATUS.FORBIDDEN
       );
+    }
+
+    const preferences = await this._preferenceService.getUserPreferences(
+      userData.userId
+    );
+    if (!preferences) {
+      await this._preferenceService.createPreferences(userData.userId);
     }
 
     const accessToken = this._tokenService.generateAccessToken({
@@ -184,6 +193,13 @@ export class AuthService implements IAuthService {
       throw new AppError(ERROR_MESSAGES.USER_BLOCKED, HTTP_STATUS.FORBIDDEN);
     }
 
+    const preferences = await this._preferenceService.getUserPreferences(
+      user.userId
+    );
+    if (!preferences) {
+      await this._preferenceService.createPreferences(user.userId);
+    }
+
     return {
       userId: user.userId,
       email: user.email,
@@ -242,6 +258,7 @@ export class AuthService implements IAuthService {
         email: userData.email,
         firstName: userData.firstName,
         lastName: userData.lastName,
+        profile: userData.profile,
       },
     };
 

@@ -1,9 +1,8 @@
 "use client";
 import { TableColumn } from "@/types/table.types";
 import { WorkspaceMember } from "../api/workspace/workspace.types";
-import { ToggleLeft, ToggleRight, Trash } from "lucide-react";
+import { MessageCircle, ToggleLeft, ToggleRight, Trash } from "lucide-react";
 import { workspaceRoles } from "@/types/roles.enum";
-import { hasPermission, PERMISSIONS } from "../utils";
 import { Avatar } from "@/components/atoms/avatar";
 import { AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
 import { getAssignedTo } from "../task-utils";
@@ -12,7 +11,9 @@ export const createMemberColumns = (
   onRoleChange: (memberId: string, role: workspaceRoles) => void,
   onStatusChange: (id: string, newStatus: boolean) => void,
   onRemove: (id: string) => void,
-  userRole: workspaceRoles
+  onChat: (memberId: string) => void,
+  hasPermission: boolean,
+  userId: string
 ): TableColumn<WorkspaceMember>[] => {
   const columns: TableColumn<WorkspaceMember>[] = [
     {
@@ -57,11 +58,11 @@ export const createMemberColumns = (
           value: "projectManager",
         },
       ],
-      disabled: (row) => userRole !== "owner" || row.role === "owner",
+      disabled: (row) => !hasPermission || row.role === "owner",
     },
   ];
 
-  if (hasPermission(userRole, PERMISSIONS.MANAGE_MEMBERS)) {
+  if (hasPermission) {
     columns.push({
       key: "isActive",
       label: "Status",
@@ -79,8 +80,8 @@ export const createMemberColumns = (
           />
         ),
     });
+
     columns.push({
-      key: "delete",
       label: "Manage",
       type: "button",
       cellClassName: "hover:bg-transperant",
@@ -89,6 +90,15 @@ export const createMemberColumns = (
       onClick: (row) => onRemove(row._id),
     });
   }
+
+  columns.push({
+    label: "Message",
+    type: "button",
+    cellClassName: "hover:bg-transperant",
+    variant: "ghost",
+    icon: (row) => row._id !== userId && <MessageCircle />,
+    onClick: (row) => onChat(row._id),
+  });
 
   return columns;
 };

@@ -1,4 +1,8 @@
 "use client";
+import { Gem, HelpCircle, Home, Users } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useSelector } from "react-redux";
 import Logo from "@/components/atoms/logo";
 import {
   Sidebar,
@@ -12,11 +16,7 @@ import NavProjects from "@/components/molecules/user-sidebar/NavProjects";
 import NavWorkspace from "@/components/molecules/user-sidebar/NavWorkspace";
 import { useGetAllProjects } from "@/lib/hooks/useProject";
 import { RootState } from "@/store";
-import { workspaceRoles } from "@/types/roles.enum";
-import { Gem, HelpCircle, Home, MessageSquare, Users } from "lucide-react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useSelector } from "react-redux";
+import { useGetChats } from "@/lib/hooks/useChat";
 
 function UserSidebar() {
   const params = useParams();
@@ -27,20 +27,15 @@ function UserSidebar() {
     (state: RootState) => state.subscription.planName
   );
 
-  const { data, isPending: isProjectLoading } = useGetAllProjects(
+  const { data: projects, isPending: isProjectLoading } = useGetAllProjects(
     workspaceId,
     {}
   );
 
-  const role = useSelector((state: RootState) => state.workspace.memberRole);
+  const { data: chats, isPending: isChatLoading } = useGetChats(workspaceId);
 
   const navigation = [
     { title: "Home", url: `/workspaces/${params.slug}`, icon: Home },
-    {
-      title: "Chats",
-      url: `/workspaces/${params.slug}/chats`,
-      icon: MessageSquare,
-    },
     {
       title: "Members",
       url: `/workspaces/${params.slug}/members`,
@@ -66,11 +61,14 @@ function UserSidebar() {
         </SidebarMenuButton>
       </SidebarHeader>
       <SidebarContent>
-        <NavLinks links={navigation} />
+        <NavLinks
+          links={navigation}
+          chats={chats?.data || []}
+          isChatLoading={isChatLoading}
+        />
         <NavProjects
           isLoading={isProjectLoading}
-          projects={data?.data}
-          role={role as workspaceRoles}
+          projects={projects?.data}
         />
         <NavWorkspace />
       </SidebarContent>

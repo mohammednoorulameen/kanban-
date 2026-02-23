@@ -5,6 +5,8 @@ import { IWorkspaceService } from "../types/service-interface/IWorkspaceService"
 import { HTTP_STATUS } from "../shared/constants/http.status";
 import AppError from "../shared/utils/AppError";
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "../shared/constants/messages";
+import { IWorkspacePermissions } from "../types/dtos/workspaces/workspace.dto";
+import { workspaceRoles } from "../types/dtos/workspaces/workspace-member.dto";
 
 @injectable()
 export class WorkspaceController implements IWorkspaceController {
@@ -37,6 +39,10 @@ export class WorkspaceController implements IWorkspaceController {
 
   async getAllWorkspaces(req: Request, res: Response) {
     const { user } = req;
+    const pageParam = req.query.page;
+    const search = req.query.search as string;
+    const page =
+      parseInt(typeof pageParam === "string" ? pageParam : "1", 10) || 1;
 
     if (!user) {
       throw new AppError(
@@ -46,7 +52,10 @@ export class WorkspaceController implements IWorkspaceController {
     }
 
     const workspaces = await this._workspaceService.getAllWorkspaces(
-      user?.userid
+      user.userid,
+      user.role as string,
+      search,
+      page
     );
 
     res.status(HTTP_STATUS.OK).json({
@@ -106,6 +115,33 @@ export class WorkspaceController implements IWorkspaceController {
     });
   }
 
+  async updateRolePermissions(req: Request, res: Response) {
+    const userId = req.user?.userid;
+    const { permissions, role } = req.body as {
+      permissions: Partial<IWorkspacePermissions>;
+      role: workspaceRoles;
+    };
+    const workspaceId = req.params.workspaceId;
+    if (!userId) {
+      throw new AppError(
+        ERROR_MESSAGES.AUTH_INVALID_TOKEN,
+        HTTP_STATUS.UNAUTHORIZED
+      );
+    }
+
+    await this._workspaceService.updateRolePermissions(
+      workspaceId,
+      role,
+      permissions,
+      userId
+    );
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: SUCCESS_MESSAGES.DATA_EDITED,
+    });
+  }
+
   async removeWorkspace(req: Request, res: Response) {
     const userId = req.user?.userid;
     const workspaceId = req.params.workspaceId;
@@ -119,7 +155,11 @@ export class WorkspaceController implements IWorkspaceController {
     if (!workspaceId)
       throw new AppError("workspaceId is required", HTTP_STATUS.BAD_REQUEST);
 
-    await this._workspaceService.removeWorkspace(workspaceId, userId);
+    await this._workspaceService.removeWorkspace(
+      workspaceId,
+      userId,
+      req.user?.role as string
+    );
 
     res.status(HTTP_STATUS.OK).json({
       success: true,

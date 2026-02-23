@@ -42,16 +42,14 @@ export const createInvitationColumns = (
     type: "text",
   },
   {
-    key: "delete",
     label: "Manage",
     type: "button",
     cellClassName: "hover:bg-transperant",
     variant: "ghost",
-    icon: (row) => row.role !== "owner" && <Trash />,
+    icon: () => <Trash />,
     onClick: (row) => onRemove(row.invitedEmail),
   },
   {
-    key: "resend",
     label: "Resend",
     type: "button",
     cellClassName: "hover:bg-transperant",

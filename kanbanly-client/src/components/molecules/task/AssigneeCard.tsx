@@ -12,8 +12,6 @@ import { InviteUserDropdown } from "../InviteUserDropdown";
 import { User } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
-import { hasPermission, PERMISSIONS } from "@/lib/utils";
-import { workspaceRoles } from "@/types/roles.enum";
 import { useTaskPageContext } from "@/contexts/TaskPageContext";
 import { AvatarImage } from "@radix-ui/react-avatar";
 
@@ -38,14 +36,11 @@ export const AssigneeCard = ({ taskId, assignedTo }: AssigneeProps) => {
     setIsInvitingUser(false);
   };
 
-  const memberRole = useSelector(
-    (state: RootState) => state.workspace.memberRole
+  const permissions = useSelector(
+    (state: RootState) => state.workspace.permissions
   );
 
-  const isVisible = hasPermission(
-    memberRole as workspaceRoles,
-    PERMISSIONS.MEMBER_ASSIGN_TASK
-  );
+  const isVisible = permissions?.taskAssign;
 
   return (
     <>
@@ -65,7 +60,7 @@ export const AssigneeCard = ({ taskId, assignedTo }: AssigneeProps) => {
                 ref={inviteButtonRef}
                 onClick={() => setIsInvitingUser(true)}
                 variant="ghost"
-                className="p-1 size-6 rounded-full hover:bg-white/20 bg-white/10 flex items-center justify-center"
+                className="p-1 size-6 rounded-full hover:bg-black/10 dark:hover:bg-white/20 bg-white/10 flex items-center justify-center"
                 disabled={isInvitingUser}
                 style={{ minWidth: "1.5rem", minHeight: "1.5rem" }}
               >

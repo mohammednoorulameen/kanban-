@@ -1,7 +1,8 @@
 "use client";
-import WorkspaceDetailsSkeleton from "@/components/organisms/workspace/WorkspaceManageSkeleton";
+import { UserManagementSkelton } from "@/components/organisms/user/UserManagementSkelton";
 import { UserManagementTemplate } from "@/components/templates/user/UserManagement";
 import {
+  UpdatePreferencesPayload,
   UpdateUserPasswordPayload,
   UpdateUserProfilePayload,
 } from "@/lib/api/user/user.types";
@@ -12,19 +13,25 @@ import {
 } from "@/lib/hooks/useSubscription";
 import { useToastMessage } from "@/lib/hooks/useToastMessage";
 import {
+  useGetUserPreferences,
   useGetUserProfile,
   useUpdateUserPassword,
+  useUpdateUserPreferences,
   useUpdateUserProfile,
 } from "@/lib/hooks/useUser";
+import { AxiosError } from "axios";
 
 export default function UserProfile() {
   const { data, isFetching } = useGetUserProfile();
   const { data: subscriptionData } = useGetUserSubscription();
+  const { data: userPreferences } = useGetUserPreferences();
 
   const { mutate: updateProfile, isPending: isEditLoading } =
     useUpdateUserProfile();
   const { mutate: updatePassword, isPending: isPasswordPending } =
     useUpdateUserPassword();
+
+  const { mutate: updatePreferences } = useUpdateUserPreferences();
 
   const { data: cloudinaryResponse } = useGetSignature();
   const cloudinarySignature = cloudinaryResponse?.data;
@@ -53,8 +60,7 @@ export default function UserProfile() {
       }
       window.location.href = response.data.url;
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (error: any) => {
+    onError: (error: AxiosError<{ message: string }>) => {
       const errorMessage = error?.response?.data?.message || "Unexpected Error";
       toast.showError({
         title: "Please try again or try contacting support",
@@ -76,8 +82,12 @@ export default function UserProfile() {
     createCustomerPortal();
   }
 
-  if (!data?.data || isFetching) {
-    return <WorkspaceDetailsSkeleton />;
+  function handlePreferenceUpdate(payload: UpdatePreferencesPayload) {
+    updatePreferences(payload);
+  }
+
+  if (!data?.data || isFetching || !userPreferences?.data) {
+    return <UserManagementSkelton />;
   }
 
   const handleImageUpload = async (file: File) => {
@@ -105,15 +115,17 @@ export default function UserProfile() {
 
   return (
     <UserManagementTemplate
+      userData={data.data}
+      userPreferences={userPreferences?.data}
       isEditLoading={isEditLoading}
       isPasswordLoading={isPasswordPending}
       uploadEdited={updateUserProfile}
-      userData={data.data}
       uploadPassword={handleUpdatePassword}
       subscription={subscriptionData?.data}
       handleCreateCustomerPortal={handleCreateCustomerPortal}
       handleImageUpload={handleImageUpload}
       isUploading={isUploading}
+      handlePreferenceUpdate={handlePreferenceUpdate}
     />
   );
 }

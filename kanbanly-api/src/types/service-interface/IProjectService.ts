@@ -10,11 +10,11 @@ export interface IProjectService {
   getAllProjects(
     workspaceId: string,
     userId: string,
-    filters: {
+    filters?: {
       search?: string;
       memberFilter?: string;
     },
-    sorting: {
+    sorting?: {
       sortBy?: string;
       order?: string;
     },
@@ -41,7 +41,8 @@ export interface IProjectService {
   getMembers(
     workspaceId: string,
     userId: string,
-    projectId: string
+    projectId: string,
+    search?: string
   ): Promise<Omit<WorkspaceMemberResponseDto, "isActive">[]>;
   removeMember(
     workspaceId: string,

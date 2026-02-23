@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "@/components/atoms/button";
 import Logo from "@/components/atoms/logo";
-import { ChevronLeft, Home, FileText, Users, Map } from "lucide-react";
+import { ChevronLeft, Home, Users, Map, Building2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -77,13 +77,13 @@ export function AppSidebar() {
             </li>
             <li>
               <Link
-                href="/admin/dashbord"
+                href="/admin/workspaces"
                 className="flex items-center gap-2 px-2 py-2 rounded-md transition-colors
                     hover:bg-zinc-100 hover:text-zinc-900
                     dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
               >
-                <FileText className="h-4 w-4" />
-                {!collapsed && <span>Reports</span>}
+                <Building2 className="h-4 w-4" />
+                {!collapsed && <span>Workspaces</span>}
               </Link>
             </li>
           </ul>

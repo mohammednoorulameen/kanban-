@@ -8,4 +8,11 @@ export interface ISubscriptionRepository
     query: FilterQuery<ISubscription>,
     data: Partial<ISubscription>
   ): Promise<void>;
+  countSubscriptions(query?: FilterQuery<ISubscription>): Promise<number>;
+  groupSubscriptionsByCreatedDate(
+    fromDate?: Date
+  ): Promise<{ date: string; count: number }[]>;
+  groupActiveSubscriptionsByPlan(
+    fromDate?: Date
+  ): Promise<{ planName: string; count: number }[]>;
 }

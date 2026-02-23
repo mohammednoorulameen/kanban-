@@ -1,10 +1,10 @@
 "use client";
 import { Card } from "@/components/atoms/card";
-import React, { useState } from "react"; // useMemo is no longer needed
+import React, { useState } from "react";
 import { Folder, Users, Plus, Calendar, Activity, Search } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { IProject } from "@/lib/api/project/project.types";
-import { getDate, hasPermission, PERMISSIONS } from "@/lib/utils";
+import { getDate } from "@/lib/utils";
 import ProjectListSkeleton from "@/components/organisms/project/ProjectListSkeleton";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { workspaceRoles } from "@/types/roles.enum";
 
 interface ProjectListingPageTemplateProps {
   projects: IProject[];
@@ -49,13 +48,11 @@ function ProjectListingPageTemplate({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const params = useParams();
   const slug = params.slug as string;
-  const role = useSelector(
-    (state: RootState) => state.workspace.memberRole
-  ) as workspaceRoles;
+  const permissions = useSelector(
+    (state: RootState) => state.workspace.permissions
+  );
 
-  const canCreateProject = hasPermission(role, PERMISSIONS.CREATE_PROJECT);
-
-  // --- Client-side filtering logic has been removed ---
+  const canCreateProject = permissions?.projectCreate;
 
   return (
     <div className="relative overflow-hidden">
@@ -103,7 +100,7 @@ function ProjectListingPageTemplate({
                     placeholder="Search by project name..."
                     value={searchTerm}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="pl-10" // The shadcn Input component handles padding and other styles well
+                    className="pl-10"
                   />
                 </div>
 

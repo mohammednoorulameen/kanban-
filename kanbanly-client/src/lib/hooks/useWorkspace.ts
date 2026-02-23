@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  UseMutationOptions,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   createWorkspace,
   editWorkspace,
@@ -6,18 +11,24 @@ import {
   getAllInvitations,
   getAllWorkspaces,
   getCurrentMember,
+  getDashboardData,
   getOneWorkspace,
   getWorkspaceMembers,
+  rejectInvitation,
   removeInvitation,
   removeWorkspace,
   removeWorkspaceMember,
   sendInvititation,
+  updateRolePermissions,
   verifyInvitation,
 } from "../api/workspace";
 import {
+  CurrentMemberResponse,
   EditWorkspaceMember,
+  IDashboardResponse,
   InvitationList,
   IWorkspace,
+  PermissionUpdationArgs,
   SendInvititationArgs,
   WorkspaceCreatePayload,
   WorkspaceEditArgs,
@@ -26,12 +37,17 @@ import {
 import { useToastMessage } from "./useToastMessage";
 import { useRouter } from "next/navigation";
 import { ApiResponse, PaginatedResponse } from "../api/common.types";
+import { AxiosError } from "axios";
 
 export const useCreateWorkspace = () => {
   const toast = useToastMessage();
   const router = useRouter();
 
-  return useMutation<ApiResponse, Error, WorkspaceCreatePayload>({
+  return useMutation<
+    ApiResponse,
+    AxiosError<{ message: string }>,
+    WorkspaceCreatePayload
+  >({
     mutationFn: createWorkspace,
     onSuccess: (response) => {
       toast.showSuccess({
@@ -41,7 +57,7 @@ export const useCreateWorkspace = () => {
       });
       router.push("/workspaces");
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<{ message: string }>) => {
       const errorMessage = error?.response?.data?.message || "Unexpected Error";
       toast.showError({
         title: "Workspace Creation Failed",
@@ -52,10 +68,13 @@ export const useCreateWorkspace = () => {
   });
 };
 
-export const useGetAllWorkspaces = () => {
-  return useQuery<ApiResponse<IWorkspace[]>, Error>({
-    queryKey: ["workspaces"],
-    queryFn: getAllWorkspaces,
+export const useGetAllWorkspaces = (page?: number, search?: string) => {
+  return useQuery<
+    ApiResponse<{ workspaces: IWorkspace[]; totalPages: number }>,
+    Error
+  >({
+    queryKey: ["workspaces", page, search],
+    queryFn: () => getAllWorkspaces(page, search),
   });
 };
 
@@ -73,18 +92,24 @@ export const useEditWorkspace = () => {
   const toast = useToastMessage();
   const queryClient = useQueryClient();
 
-  return useMutation<ApiResponse, Error, WorkspaceEditArgs>({
+  return useMutation<
+    ApiResponse,
+    AxiosError<{ message: string }>,
+    WorkspaceEditArgs
+  >({
     mutationKey: ["editWorkspace"],
     mutationFn: editWorkspace,
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
       toast.showSuccess({
         title: "Successfully Edited",
         description: response.message,
         duration: 6000,
       });
-      queryClient.invalidateQueries({ queryKey: ["getOneWorkspace"] });
+      queryClient.invalidateQueries({
+        queryKey: ["getOneWorkspace", variables.workspaceId],
+      });
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<{ message: string }>) => {
       const errorMessage = error?.response?.data?.message || "Unexpected Error";
       toast.showError({
         title: "Workspace Editing Failed",
@@ -95,21 +120,43 @@ export const useEditWorkspace = () => {
   });
 };
 
-export const useRemoveWorkspace = () => {
+export const useUpdateRolePermissions = () => {
   const toast = useToastMessage();
-  const router = useRouter();
+  const queryClient = useQueryClient();
 
+  return useMutation<
+    ApiResponse,
+    AxiosError<{ message: string }>,
+    PermissionUpdationArgs
+  >({
+    mutationKey: ["updateRolePermissions"],
+    mutationFn: updateRolePermissions,
+    onSuccess: (response, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["getOneWorkspace", variables.workspaceId],
+      });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage = error?.response?.data?.message || "Unexpected Error";
+      toast.showError({
+        title: "Workspace Editing Failed",
+        description: errorMessage,
+        duration: 6000,
+      });
+    },
+  });
+};
+
+export const useRemoveWorkspace = (
+  options?: Omit<
+    UseMutationOptions<ApiResponse, Error, { workspaceId: string }>,
+    "mutationKey" | "mutationFn"
+  >
+) => {
   return useMutation<ApiResponse, Error, { workspaceId: string }>({
     mutationKey: ["removeWorkspace"],
     mutationFn: removeWorkspace,
-    onSuccess: (response) => {
-      toast.showSuccess({
-        title: "Successfully Deleted",
-        description: response.message,
-        duration: 6000,
-      });
-      router.replace("/workspaces");
-    },
+    ...options,
   });
 };
 
@@ -118,11 +165,18 @@ export const useSendInvitation = () => {
   const toast = useToastMessage();
   const queryClient = useQueryClient();
 
-  return useMutation<ApiResponse, Error, SendInvititationArgs>({
+  return useMutation<
+    ApiResponse,
+    AxiosError<{ message: string }>,
+    SendInvititationArgs
+  >({
     mutationFn: sendInvititation,
     onSuccess: (response) => {
       queryClient.invalidateQueries({
-        queryKey: ["getWorkspaceMembers", "getAllInvitations"],
+        queryKey: ["getWorkspaceMembers"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getAllInvitations"],
       });
       toast.showSuccess({
         title: "Successfully Sent",
@@ -130,7 +184,7 @@ export const useSendInvitation = () => {
         duration: 6000,
       });
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<{ message: string }>) => {
       const errorMessage = error?.response?.data?.message || "Unexpected Error";
       toast.showError({
         title: "Invitation Failed",
@@ -144,6 +198,7 @@ export const useSendInvitation = () => {
 export const useVerifyInvitation = () => {
   const toast = useToastMessage();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   return useMutation<ApiResponse, Error, { token: string }>({
     mutationFn: verifyInvitation,
@@ -153,7 +208,44 @@ export const useVerifyInvitation = () => {
         description: response.message,
         duration: 6000,
       });
+      queryClient.invalidateQueries({
+        queryKey: ["getUserNotifications"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["workspaces"],
+      });
       router.replace("/workspaces");
+    },
+  });
+};
+
+export const useRejectInvitation = () => {
+  const toast = useToastMessage();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    ApiResponse,
+    AxiosError<{ message: string }>,
+    { token: string }
+  >({
+    mutationFn: rejectInvitation,
+    onSuccess: (response) => {
+      toast.showSuccess({
+        title: "Successfully Rejected",
+        description: response.message,
+        duration: 6000,
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getUserNotifications"],
+      });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage = error?.response?.data?.message || "Unexpected Error";
+      toast.showError({
+        title: "Rejection Failed",
+        description: errorMessage,
+        duration: 6000,
+      });
     },
   });
 };
@@ -204,7 +296,7 @@ export const useWorkspaceMembers = (
 };
 
 export const useGetCurrentMember = (workspaceId: string | null) => {
-  return useQuery<ApiResponse<WorkspaceMember>, Error>({
+  return useQuery<ApiResponse<CurrentMemberResponse>, Error>({
     queryKey: ["getCurrentMember", workspaceId],
     queryFn: () => getCurrentMember(workspaceId),
     enabled: !!workspaceId,
@@ -215,20 +307,27 @@ export const useEditWorkspaceMember = () => {
   const toast = useToastMessage();
   const queryClient = useQueryClient();
 
-  return useMutation<ApiResponse, Error, EditWorkspaceMember>({
+  return useMutation<
+    ApiResponse,
+    AxiosError<{ message: string }>,
+    EditWorkspaceMember
+  >({
     mutationKey: ["editWorkspaceMember"],
     mutationFn: editWorkspaceMember,
-    onSuccess: (response) => {
+    onSuccess: (response, variables) => {
       toast.showSuccess({
         title: "Successfully Updated",
         description: response.message,
         duration: 6000,
       });
       queryClient.invalidateQueries({
-        queryKey: ["getWorkspaceMembers", "getAllInvitations"],
+        queryKey: ["getWorkspaceMembers", variables.workspaceId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["getAllInvitations"],
       });
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<{ message: string }>) => {
       const errorMessage = error?.response?.data?.message || "Unexpected Error";
       toast.showError({
         title: "Workspace Member Updation Failed",
@@ -245,7 +344,7 @@ export const useRemoveWorkspaceMember = () => {
 
   return useMutation<
     ApiResponse,
-    Error,
+    AxiosError<{ message: string }>,
     { workspaceId: string; memberId: string }
   >({
     mutationKey: ["removeWorkspaceMember"],
@@ -258,7 +357,7 @@ export const useRemoveWorkspaceMember = () => {
       });
       queryClient.invalidateQueries({ queryKey: ["getWorkspaceMembers"] });
     },
-    onError: (error: any) => {
+    onError: (error: AxiosError<{ message: string }>) => {
       const errorMessage = error?.response?.data?.message || "Unexpected Error";
       toast.showError({
         title: "Workspace Member Deletion Failed",
@@ -266,5 +365,13 @@ export const useRemoveWorkspaceMember = () => {
         duration: 6000,
       });
     },
+  });
+};
+
+export const useGetDashboardData = (workspaceId: string) => {
+  return useQuery<ApiResponse<IDashboardResponse>, Error>({
+    queryKey: ["getDashboardData", workspaceId],
+    queryFn: () => getDashboardData(workspaceId),
+    enabled: !!workspaceId,
   });
 };

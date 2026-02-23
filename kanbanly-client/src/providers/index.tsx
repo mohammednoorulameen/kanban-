@@ -11,6 +11,7 @@ import { setToastMessageInstance } from "@/lib/api/axios";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { appConfig } from "@/lib/config";
 import InitApp from "@/app/InitAuth";
+import { SocketProvider } from "@/contexts/SocketContext";
 
 interface IProps {
   children: React.ReactNode;
@@ -26,6 +27,9 @@ function ToastSetupWrapper({ children }: IProps) {
   return <>{children}</>;
 }
 
+import { NotificationProvider } from "./NotificationProvider";
+import { NotificationContainer } from "@/components/molecules/NotificationContainer";
+
 export function Providers({ children }: IProps) {
   const [queryClient] = useState(() => new QueryClient());
   return (
@@ -37,7 +41,10 @@ export function Providers({ children }: IProps) {
             <ToastSetupWrapper>
               <ReduxProvider store={store}>
                 <InitApp />
-                {children}
+                <NotificationProvider>
+                  <NotificationContainer />
+                  <SocketProvider>{children}</SocketProvider>
+                </NotificationProvider>
               </ReduxProvider>
             </ToastSetupWrapper>
           </ToastProvider>

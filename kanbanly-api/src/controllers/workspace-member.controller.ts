@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { IWorkspaceMemberController } from "../types/controller-interfaces/IWorkspaceMemberController";
 import {
   EditWorkspaceMemberDto,
-  WorkspaceMemberDto,
+  workspaceRoles,
 } from "../types/dtos/workspaces/workspace-member.dto";
 import { inject, injectable } from "tsyringe";
 import { IWorkspaceMemberService } from "../types/service-interface/IWorkspaceMemberService";
@@ -24,10 +24,22 @@ export class WorkspaceMemberController implements IWorkspaceMemberController {
       userId: memberId,
       workspaceId,
       role,
-    } = req.body as WorkspaceMemberDto;
+    } = req.body as {
+      userId: string;
+      workspaceId: string;
+      role: workspaceRoles;
+    };
+    const userId = req.user?.userid;
+    if (!userId) {
+      throw new AppError(
+        ERROR_MESSAGES.UNAUTHORIZED_ACCESS,
+        HTTP_STATUS.UNAUTHORIZED
+      );
+    }
 
     await this._workspaceMemberService.addMember({
-      userId: memberId,
+      invitedUserId: memberId,
+      inviterUserId: userId,
       workspaceId,
       role,
     });
@@ -54,7 +66,6 @@ export class WorkspaceMemberController implements IWorkspaceMemberController {
     const search =
       req.query.search !== "undefined" ? String(req.query.search) : "";
 
-    console.log("search is", req.query.search);
     // get limit from query
     const paramLimit = parseInt(req.query.limit as string, 10);
     const limit =
